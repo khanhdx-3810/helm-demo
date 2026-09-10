@@ -1,0 +1,97 @@
+# Gia tri mac dinh cho chart demo-api.
+# Ghi de tung phan bang: helm install ... --set key=value  hoac  -f values-xxx.yaml
+
+replicaCount: 2
+
+image:
+  repository: ghcr.io/stefanprodan/podinfo
+  tag: "6.15.0"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# nameOverride/fullnameOverride: doi cach dat ten object khi can (xem _helpers.tpl)
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  fsGroup: 65534
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  # Image podinfo khai USER bang ten ("app"), khong phai UID so.
+  # runAsNonRoot=true (o podSecurityContext) can UID so de tu xac minh -> phai ep runAsUser tuong minh,
+  # neu khong kubelet bao loi CreateContainerConfigError: "cannot verify user is non-root".
+  runAsUser: 65534
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: 80        # port cua Service, goi tu ben ngoai Pod
+  targetPort: 9898 # port container dang nghe (podinfo)
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: demo-api.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Bien moi truong khong nhay cam -> render thanh ConfigMap (xem templates/configmap.yaml)
+config:
+  PODINFO_UI_MESSAGE: "Xin chao tu chart tu viet"
+  PODINFO_UI_COLOR: "#1c7c54"
+
+# Bien moi truong nhay cam -> render thanh Secret (xem templates/secret.yaml)
+# KHONG commit gia tri that vao git; truyen qua --set hoac -f values-secret.yaml rieng.
+secrets:
+  PODINFO_API_TOKEN: ""
+
+probes:
+  liveness:
+    path: /healthz
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  readiness:
+    path: /readyz
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 64Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Job chay truoc khi Deployment duoc cap nhat (pre-install,pre-upgrade hook).
+# Bat migration.enabled=true khi app that co buoc chay migration DB.
+migration:
+  enabled: false
+  image:
+    repository: ghcr.io/stefanprodan/podinfo
+    tag: "6.15.0"
+  command:
+    - "sh"
+    - "-c"
+    - "echo 'Dang chay migration...' && sleep 2 && echo 'Migration hoan tat'"

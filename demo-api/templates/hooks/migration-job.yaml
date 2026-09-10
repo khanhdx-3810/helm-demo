@@ -1,0 +1,33 @@
+{{- if .Values.migration.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # Gan them revision vao ten de moi lan install/upgrade tao Job moi, tranh trung ten Job cu
+  name: {{ include "demo-api.fullname" . }}-migration-{{ .Release.Revision }}
+  labels:
+    {{- include "demo-api.labels" . | nindent 4 }}
+  annotations:
+    # Chay TRUOC khi Deployment duoc cap nhat, o ca lan install dau va cac lan upgrade sau
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "0"
+    # Job cu (thanh cong hoac that bai) bi xoa truoc khi Job moi duoc tao
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        {{- include "demo-api.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migration
+          image: "{{ .Values.migration.image.repository }}:{{ .Values.migration.image.tag }}"
+          command:
+            {{- toYaml .Values.migration.command | nindent 12 }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "demo-api.fullname" . }}-config
+            - secretRef:
+                name: {{ include "demo-api.fullname" . }}-secret
+{{- end }}

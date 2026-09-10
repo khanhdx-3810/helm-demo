@@ -1,0 +1,28 @@
+Chart {{ .Chart.Name }} da duoc trien khai voi ten release "{{ .Release.Name }}" trong namespace "{{ .Release.Namespace }}".
+
+1. Kiem tra trang thai Pod:
+
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+2. Truy cap ung dung:
+{{- if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
+  http://{{ .host }}
+{{- end }}
+{{- else if eq .Values.service.type "ClusterIP" }}
+
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "demo-api.fullname" . }} 8080:{{ .Values.service.port }}
+  Sau do mo: http://127.0.0.1:8080
+{{- else if eq .Values.service.type "NodePort" }}
+
+  export NODE_PORT=$(kubectl get -n {{ .Release.Namespace }} svc {{ include "demo-api.fullname" . }} -o jsonpath="{.spec.ports[0].nodePort}")
+  export NODE_IP=$(kubectl get nodes -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+{{- else if eq .Values.service.type "LoadBalancer" }}
+
+  kubectl get -n {{ .Release.Namespace }} svc {{ include "demo-api.fullname" . }} -w
+{{- end }}
+
+3. Xem log:
+
+  kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} -f
